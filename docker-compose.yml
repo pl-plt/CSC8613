@@ -1,18 +1,30 @@
-version: "3.9"
-
 services:
-  db:
-    image: postgres:16
-    environment:
-      POSTGRES_USER: demo
-      POSTGRES_PASSWORD: demo
-      POSTGRES_DB: demo
-    ports:
-      - 5432:5432
+    postgres:
+        image: postgres:16
+        env_file: .env
+        volumes:
+            - ./db/init:/docker-entrypoint-initdb.d
+            - pgdata:/var/lib/postgresql/data
+        ports:
+            - "5432:5432"
 
-  api:
-    build: ./api
-    ports:
-      - 8000:8000
-    depends_on:
-      - db
+    prefect:
+        build: ./services/prefect
+        depends_on:
+            - postgres
+        env_file: .env
+        environment:
+            PREFECT_API_URL: http://0.0.0.0:4200/api
+            PREFECT_UI_URL: http://0.0.0.0:4200
+            PREFECT_LOGGING_LEVEL: INFO
+            POSTGRES_HOST: postgres
+            POSTGRES_PORT: 5432
+            POSTGRES_USER: ${POSTGRES_USER}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+            POSTGRES_DB: ${POSTGRES_DB}
+        volumes:
+            - ./services/prefect:/opt/prefect/flows
+            - ./data:/data:ro
+
+volumes:
+    pgdata:
