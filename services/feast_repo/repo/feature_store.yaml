@@ -1,0 +1,23 @@
+project: streamflow
+provider: local
+registry: registry.db
+
+offline_store:
+  type: postgres
+  host: postgres
+  port: 5432
+  database: streamflow
+  db_schema: public
+  user: streamflow
+  password: streamflow
+
+online_store:
+  type: postgres
+  host: postgres
+  port: 5432
+  database: streamflow
+  db_schema: public
+  user: streamflow
+  password: streamflow
+
+entity_key_serialization_version: 2

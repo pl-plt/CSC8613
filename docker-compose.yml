@@ -24,7 +24,27 @@ services:
             POSTGRES_DB: ${POSTGRES_DB}
         volumes:
             - ./services/prefect:/opt/prefect/flows
-            - ./data:/data:ro
+            - ./data:/data
+            - ./services/feast_repo/repo:/repo # Accès à Feast
+    feast:
+        build: ./services/feast_repo
+        depends_on:
+            - postgres
+        environment:
+            FEAST_USAGE: "False"
+        volumes:
+            - ./services/feast_repo/repo:/repo
 
+    api:
+        build: ./api
+        env_file: .env
+        depends_on:
+        - postgres
+        - feast
+        ports:
+        - "8000:8000"
+        volumes:
+        - ./api:/app
+        - ./services/feast_repo/repo:/repo   # pour que l'API voie le repo Feast
 volumes:
     pgdata:
