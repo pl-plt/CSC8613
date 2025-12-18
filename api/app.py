@@ -1,70 +1,92 @@
 from fastapi import FastAPI
+from pydantic import BaseModel
 from feast import FeatureStore
 
-app = FastAPI()
+app = FastAPI(title="StreamFlow Churn Prediction API")
 
 # Initialisation du Feature Store (le repo est monté dans /repo)
 store = FeatureStore(repo_path="/repo")
+
+import mlflow.pyfunc
+import pandas as pd
+import os
+
+
+# --- Config ---
+REPO_PATH = "/repo"
+# TODO 1: complétez avec le nom de votre modèle
+MODEL_URI = "models:/streamflow_churn/Production"
+
+try:
+    store = FeatureStore(repo_path=REPO_PATH)
+    model = mlflow.pyfunc.load_model(MODEL_URI)
+except Exception as e:
+    print(f"Warning: init failed: {e}")
+    store = None
+    model = None
+
+
+class UserPayload(BaseModel):
+    user_id: str
+
 
 @app.get("/health")
 def health():
     return {"status": "ok"}
 
-@app.get("/features/{user_id}")
-def get_features(user_id: str):
-    features = [
-        "subs_profile_fv:months_active",
-        "subs_profile_fv:monthly_fee",
-        "subs_profile_fv:paperless_billing",
-    ]
 
-    feature_dict = store.get_online_features(
-        features=features,
-        entity_rows=[{"user_id": user_id}],
-    ).to_dict()
+# TODO 2: Mettre une requête POST
+@app.post("/predict")
+def predict(payload: UserPayload):
+    if store is None or model is None:
+        return {"error": "Model or feature store not initialized"}
 
-    # On convertit en format plus simple (clé -> valeur scalaires)
-    simple = {name: values[0] for name, values in feature_dict.items()}
-
-    return {
-        "user_id": user_id,
-        "features": simple,
-    }
-
-@app.get("/features/debug/all")
-def debug_all_features():
-    all_feature_views = store.list_feature_views()
-    fv_names = [fv.name for fv in all_feature_views]
-    return {"feature_views": fv_names}
-
-@app.get("/features/debug/{feature_view_name}")
-def debug_feature_view(feature_view_name: str):
-    available_fvs = [fv.name for fv in store.list_feature_views()]
-    if feature_view_name not in available_fvs:
-        return {"error": f"Feature view not found. Available: {available_fvs}"}
-
-    entity_df_sql = """
-        SELECT user_id, '2024-01-31'::timestamp as event_timestamp
-        FROM users
-        LIMIT 50
-    """
-
-    try:
-        fv = store.get_feature_view(feature_view_name)
-        feature_names = [
-            f"{feature_view_name}:{field.name}" 
-            for field in fv.schema 
-            if field.name != "user_id"
+    # TODO (optionel) à adapter si besoin
+    features_request = [
+            "subs_profile_fv:months_active",
+            "subs_profile_fv:monthly_fee",
+            "subs_profile_fv:paperless_billing",
+            "subs_profile_fv:plan_stream_tv",
+            "subs_profile_fv:plan_stream_movies",
+            "subs_profile_fv:net_service",
+            "usage_agg_30d_fv:watch_hours_30d",
+            "usage_agg_30d_fv:avg_session_mins_7d",
+            "usage_agg_30d_fv:unique_devices_30d",
+            "usage_agg_30d_fv:skips_7d",
+            "usage_agg_30d_fv:rebuffer_events_7d",
+            "payments_agg_90d_fv:failed_payments_90d",
+            "support_agg_90d_fv:support_tickets_90d",
+            "support_agg_90d_fv:ticket_avg_resolution_hrs_90d",
         ]
 
-        df = store.get_historical_features(
-            features=feature_names,
-            entity_df=entity_df_sql,
-        ).to_df()
 
-        return {
-            "feature_view": feature_view_name,
-            "data": df.to_dict(orient="records"),
-        }
-    except Exception as e:
-        return {"error": str(e)}
+    # TODO 3 : Récupérer les features online
+    feature_dict = store.get_online_features(
+            features=features_request,
+            entity_rows=[{"user_id": payload.user_id}],
+        ).to_dict()
+
+    X = pd.DataFrame({k: [v[0]] for k, v in feature_dict.items()})
+
+    # Gestion des features manquantes
+    if X.isnull().any().any():
+            missing = X.columns[X.isnull().any()].tolist()
+            return {
+                "error": f"Missing features for user_id={payload.user_id}",
+                "missing_features": missing,
+            }
+
+    # Nettoyage minimal (évite bugs de types)
+    X = X.drop(columns=["user_id"], errors="ignore")
+
+    # TODO 4: appeler le modèle et produire la réponse JSON (prediction + proba optionnelle)
+    # Astuce : la plupart des modèles MLflow “pyfunc” utilisent model.predict(X)
+    # (on ne suppose pas predict_proba ici)
+    y_pred = model.predict(X)
+
+    # TODO 5 : Retourner la prédiction
+    return {
+        "user_id": payload.user_id,
+        "prediction": int(y_pred[0]),
+        "features_used": X.to_dict(orient="records")[0],
+    }

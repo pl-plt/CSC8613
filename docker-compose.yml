@@ -46,5 +46,15 @@ services:
         volumes:
         - ./api:/app
         - ./services/feast_repo/repo:/repo   # pour que l'API voie le repo Feast
+
+    mlflow:
+        image: ghcr.io/mlflow/mlflow:v2.16.0
+        command: mlflow server --backend-store-uri sqlite:///mlartifacts/mlflow.db --default-artifact-root mlflow-artifacts:/ --host 0.0.0.0 --port 5000 --serve-artifacts --artifacts-destination /mlartifacts/artifacts
+        volumes:
+        - "./mlartifacts:/mlartifacts"
+        ports: ["5000:5000"]
+
+
 volumes:
     pgdata:
+    mlartifacts:
