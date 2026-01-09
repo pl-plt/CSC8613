@@ -26,6 +26,7 @@ services:
             - ./services/prefect:/opt/prefect/flows
             - ./data:/data
             - ./services/feast_repo/repo:/repo # Accès à Feast
+            - ./reports:/reports
     feast:
         build: ./services/feast_repo
         depends_on:
@@ -53,8 +54,31 @@ services:
         volumes:
         - "./mlartifacts:/mlartifacts"
         ports: ["5000:5000"]
+    prometheus:
+        image: prom/prometheus:v2.55.1
+        container_name: streamflow-prometheus
+        volumes:
+            - ./services/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+        command:
+            - "--config.file=/etc/prometheus/prometheus.yml"
+        ports:
+            - "9090:9090"
+        depends_on:
+            - api
+
+    grafana:
+        image: grafana/grafana:11.2.0
+        container_name: streamflow-grafana
+        volumes:
+            - ./services/grafana/provisioning:/etc/grafana/provisioning
+            - grafana-data:/var/lib/grafana
+        ports:
+            - "3000:3000"
+        depends_on:
+            - prometheus
 
 
 volumes:
     pgdata:
     mlartifacts:
+    grafana-data:
