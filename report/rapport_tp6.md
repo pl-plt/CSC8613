@@ -645,7 +645,9 @@ Dans GitHub, vérifiez que les deux jobs passent.
 Dans votre rapport, ajoutez :
 
 *   Une capture GitHub Actions montrant un run qui passe
+![github_actions_ci_passed](../static/img/github_action_passed.png)
 *   Une phrase expliquant pourquoi on démarre Docker Compose dans la CI (tests d’intégration multi-services)
+> On démarre Docker Compose dans la CI pour effectuer des tests d'intégration multi-services. Cela permet de vérifier que tous les services interagissent correctement entre eux dans un environnement similaire à la production, assurant ainsi la robustesse et la fiabilité du système global.
 
 ### Synthèse finale : boucle complète drift → retrain → promotion → serving
 
@@ -660,5 +662,20 @@ Ajoutez une petite section “limites / améliorations” :
 *   Pourquoi la CI ne doit pas entraîner le modèle complet
 *   Quels tests manquent
 *   Pourquoi l’approbation humaine / gouvernance est souvent nécessaire en vrai
+
+> ## Synthèse finale
+> ### Comment le drift est mesuré et le rôle du seuil 0.02
+> Le drift est mesuré à l'aide d'Evidently, qui compare les distributions des caractéristiques entre deux périodes (référence et actuelle). Le seuil de 0.02 est utilisé pour déclencher un réentraînement lorsque le pourcentage de caractéristiques présentant un drift dépasse ce seuil, indiquant un changement significatif dans les données.
+> ### Comment le flow train_and_compare_flow compare val_auc et décide une promotion
+> Le flow train_and_compare_flow entraîne un modèle candidat sur les données actuelles, évalue le modèle en production sur les mêmes données, puis compare les scores AUC de validation. Si le score AUC du modèle candidat dépasse celui du modèle en production de plus d'un certain delta (0.01), le modèle candidat est promu en production.
+> ### Ce qui relève de Prefect vs GitHub Actions
+> Prefect est utilisé pour orchestrer les workflows de réentraînement, d'évaluation et de promotion des modèles, tandis que GitHub Actions est utilisé pour la CI, assurant que le code passe les tests unitaires et d'intégration avant d'être déployé.
+> ### Limites / améliorations
+> - La CI ne doit pas entraîner le modèle complet car cela peut être long et non déterministe, ce qui ralentirait le processus de validation du code.
+> - Des tests d'intégration plus approfondis pourraient être ajoutés pour vérifier le bon fonctionnement des interactions entre les différents services.
+> - L'approbation humaine est souvent nécessaire pour garantir que les modèles promus respectent les normes éthiques, réglementaires et de performance avant d'être déployés en production.
+
+
+
 
 Pushez votre dépôt avec le tag TP6.
