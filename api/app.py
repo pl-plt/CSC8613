@@ -52,13 +52,39 @@ def predict(payload: UserPayload):
         return {"error": "Model or feature store not initialized"}
 
     features_request = [
+        "subs_profile_fv:months_active",
+        "subs_profile_fv:monthly_fee",
         "subs_profile_fv:paperless_billing",
         "subs_profile_fv:plan_stream_tv",
         "subs_profile_fv:plan_stream_movies",
+        "subs_profile_fv:net_service",
+        "usage_agg_30d_fv:watch_hours_30d",
+        "usage_agg_30d_fv:avg_session_mins_7d",
+        "usage_agg_30d_fv:unique_devices_30d",
+        "usage_agg_30d_fv:skips_7d",
+        "usage_agg_30d_fv:rebuffer_events_7d",
+        "payments_agg_90d_fv:failed_payments_90d",
+        "support_agg_90d_fv:support_tickets_90d",
+        "support_agg_90d_fv:ticket_avg_resolution_hrs_90d",
     ]
+
+    feature_dict = store.get_online_features(
+            features=features_request,
+            entity_rows=[{"user_id": payload.user_id}],
+        ).to_dict()
+    
+    X = pd.DataFrame({k: [v[0]] for k, v in feature_dict.items()})
+
+    if X.isnull().any().any():
+            missing = X.columns[X.isnull().any()].tolist()
+            return {
+                "error": f"Missing features for user_id={payload.user_id}",
+                "missing_features": missing,
+            }
 
     X = X.drop(columns=["user_id"], errors="ignore")
     y_pred = model.predict(X)[0]
+    # y_pred = model.predict(X)
 
     REQUEST_LATENCY.observe(time.time() - start_time)
 

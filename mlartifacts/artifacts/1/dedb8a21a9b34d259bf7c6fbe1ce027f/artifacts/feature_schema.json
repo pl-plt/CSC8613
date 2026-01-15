@@ -1,0 +1,20 @@
+{
+  "categorical_cols": [
+    "net_service"
+  ],
+  "numeric_cols": [
+    "months_active",
+    "monthly_fee",
+    "paperless_billing",
+    "plan_stream_tv",
+    "plan_stream_movies",
+    "watch_hours_30d",
+    "avg_session_mins_7d",
+    "unique_devices_30d",
+    "skips_7d",
+    "rebuffer_events_7d",
+    "failed_payments_90d",
+    "support_tickets_90d",
+    "ticket_avg_resolution_hrs_90d"
+  ]
+}
